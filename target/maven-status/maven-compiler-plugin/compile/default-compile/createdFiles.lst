@@ -1,5 +1,0 @@
-com\gestionacademica\application\service\CrearAsignaturaService.class
-com\gestionacademica\application\port\input\CrearAsignaturaUseCase.class
-com\gestionacademica\application\port\output\AsignaturaRepositoryPort.class
-com\gestionacademica\domain\model\Asignatura.class
-com\gestionacademica\GestionAsignaturasApiApplication.class
