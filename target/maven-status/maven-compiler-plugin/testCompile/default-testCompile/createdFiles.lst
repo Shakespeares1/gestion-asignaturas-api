@@ -1,0 +1,3 @@
+com\gestionacademica\domain\model\AsignaturaTest.class
+com\gestionacademica\application\service\CrearAsignaturaServiceTest.class
+com\gestionacademica\GestionAsignaturasApiApplicationTests.class
