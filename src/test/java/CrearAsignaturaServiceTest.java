@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import com.gestionacademica.application.port.output.AsignaturaRepositoryPort;
 import com.gestionacademica.domain.model.Asignatura;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,8 +15,7 @@ class CrearAsignaturaServiceTest {
     @Test
     void debeCrearAsignaturaCorrectamente() {
 
-        AsignaturaRepositoryPort repositorioFalso =
-                asignatura -> asignatura;
+        AsignaturaRepositoryPort repositorioFalso = repositorioFalso();
 
         CrearAsignaturaService servicio =
                 new CrearAsignaturaService(repositorioFalso);
@@ -42,8 +43,7 @@ class CrearAsignaturaServiceTest {
     @Test
     void debeRechazarAsignaturaNula() {
 
-        AsignaturaRepositoryPort repositorioFalso =
-                asignatura -> asignatura;
+        AsignaturaRepositoryPort repositorioFalso = repositorioFalso();
 
         CrearAsignaturaService servicio =
                 new CrearAsignaturaService(repositorioFalso);
@@ -52,5 +52,15 @@ class CrearAsignaturaServiceTest {
                 NullPointerException.class,
                 () -> servicio.ejecutar(null)
         );
+    }
+
+    private AsignaturaRepositoryPort repositorioFalso() {
+        return new AsignaturaRepositoryPort() {
+            @Override public Asignatura guardar(Asignatura asignatura) { return asignatura; }
+            @Override public List<Asignatura> listar() { return List.of(); }
+            @Override public Optional<Asignatura> buscarPorId(Long id) { return Optional.empty(); }
+            @Override public boolean existePorId(Long id) { return false; }
+            @Override public void eliminarPorId(Long id) {}
+        };
     }
 }

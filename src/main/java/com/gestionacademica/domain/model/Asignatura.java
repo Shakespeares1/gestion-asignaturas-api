@@ -3,6 +3,12 @@ package com.gestionacademica.domain.model;
 
 public class Asignatura {
 
+    public static final int MAX_NOMBRE = 120;
+    public static final int MAX_NOMBRE_COMPLETO = 200;
+    public static final int MAX_AREA_CONOCIMIENTO = 120;
+    public static final int MAX_CARRERA = 120;
+    public static final int MAX_PROFESOR = 160;
+
     private Long id;
     private String nombre;
     private String nombreCompleto;
@@ -46,6 +52,12 @@ public class Asignatura {
                     "El semestre debe ser positivo");
         }
 
+        validarLongitud(nombre, MAX_NOMBRE, "El nombre");
+        validarLongitud(nombreCompleto, MAX_NOMBRE_COMPLETO, "El nombre completo");
+        validarLongitud(areaConocimiento, MAX_AREA_CONOCIMIENTO, "El área de conocimiento");
+        validarLongitud(carrera, MAX_CARRERA, "La carrera");
+        validarLongitud(profesor, MAX_PROFESOR, "El profesor");
+
         this.id = id;
         this.nombre = nombre;
         this.nombreCompleto = nombreCompleto;
@@ -56,6 +68,12 @@ public class Asignatura {
         this.contenidoTematico = contenidoTematico;
         this.semestre = semestre;
         this.profesor = profesor;
+    }
+
+    private static void validarLongitud(String valor, int maxima, String campo) {
+        if (valor != null && valor.length() > maxima) {
+            throw new IllegalArgumentException(campo + " no puede superar " + maxima + " caracteres");
+        }
     }
 
     public Long getId() {

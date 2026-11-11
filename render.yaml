@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: gestion-asignaturas-api
+    runtime: docker
+    repo: https://github.com/Shakespeares1/gestion-asignaturas-api
+    branch: main
+    autoDeployTrigger: commit
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    numInstances: 1
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET_BASE64
+        generateValue: true
+      - key: JWT_ISSUER
+        value: gestion-academica
+      - key: JWT_TTL_SECONDS
+        value: "900"
+      - key: CORS_ALLOWED_ORIGINS
+        value: ""
