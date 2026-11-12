@@ -152,3 +152,16 @@ Revisar `git diff --check` y el estado de cambios locales sin alterar los archiv
 - Commit principal publicado: `15a5899758b56b3a4ef05c0e9fd6b1cd53455bd4` (`Prepare secure Render deployment and Kodular API integration`), con los 22 archivos revisados.
 - `git push origin main` finalizo correctamente. `git ls-remote origin refs/heads/main` devolvio el mismo hash que `HEAD`; rama `main` quedo sincronizada con `origin/main`.
 - Se registra este resultado en el archivo de seguimiento; Render sigue sin desplegarse y no se modifico Supabase.
+## Fase 2.3 - comprobacion previa al primer servicio Render (2026-11-12)
+
+- Tras publicar, `main` estaba limpia y sincronizada con `origin/main` en `a5e0d1c736af26cca83e8b2bb24e218bf6683de6`.
+- Se releyeron `render.yaml`, `application-prod.properties` y `Dockerfile`. El blueprint espera DB_URL/DB_USERNAME/DB_PASSWORD como valores secretos, genera JWT_SECRET_BASE64, fija CORS y APP_PROXY_TRUSTED_CIDRS vacios, y usa readiness `/actuator/health/readiness`. Produccion valida esquema con Hibernate, tiene Flyway deshabilitado y readiness depende de DB y estado de aplicacion.
+- En el entorno de proceso local, DB_URL, DB_USERNAME, DB_PASSWORD, DATABASE_URL, JWT_SECRET_BASE64, CORS_ALLOWED_ORIGINS, APP_PROXY_TRUSTED_CIDRS y las variables SMTP consultadas estan ausentes. No se imprimieron valores secretos.
+- No hay comando Render CLI ni herramientas/conector de Render disponibles en esta sesion. No se creo un servicio ni se inicio despliegue. Sin variables DB configuradas en el formulario protegido de Render no se puede validar el arranque/readiness ni probar Swagger/login publicos.
+- SMTP sigue sin credenciales; la recuperacion por correo permanecera no disponible hasta configurar SMTP y APP_MAIL_RESET_URL. Para Kodular nativo, CORS de navegador no es necesario. Mantener APP_PROXY_TRUSTED_CIDRS vacio hasta observar y verificar el peer/proxies reales; no inventar rangos.
+- Proxima accion concreta: en el panel de Render, importar el blueprint desde `main`, cargar DB_URL JDBC con SSL, DB_USERNAME y DB_PASSWORD en Secret Files/Environment, revisar el JWT generado y crear el servicio solo cuando el usuario autorice el primer despliegue. Luego validar readiness, OpenAPI/Swagger, registro/login y rutas publicas sin ejecutar CRUD sobre Supabase durante el smoke test.
+## Ajuste de plan Render gratuito (2026-11-12)
+
+- Se agrego `plan: free` al servicio web existente en `render.yaml`; runtime Docker, Dockerfile, repo, rama, variables, readiness y `autoDeployTrigger: "off"` se conservaron.
+- SnakeYAML 2.6 parseo el archivo y verifico los campos requeridos. `git diff --check` paso.
+- Sin commit ni push. Sin cambios a Java, Supabase, migraciones o secretos.

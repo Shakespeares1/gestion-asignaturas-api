@@ -2,6 +2,7 @@ services:
   - type: web
     name: gestion-asignaturas-api
     runtime: docker
+    plan: free
     repo: https://github.com/Shakespeares1/gestion-asignaturas-api
     branch: main
     autoDeployTrigger: "off"
