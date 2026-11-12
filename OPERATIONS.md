@@ -9,11 +9,26 @@ Antes de que cualquier instancia se conecte a la base Supabase existente:
 1. Suspende temporalmente despliegues y toma un respaldo verificable de esquema y datos.
 2. Inspecciona el esquema e historial Flyway existente sin arrancar esta aplicación contra esa base.
 3. Compara columnas, tipos, longitudes, nulabilidad, identity, constraints, índices y datos con `V1__create_asignaturas.sql` y `V2__create_usuarios.sql`; prueba la comparación sobre una copia aislada.
-4. Si coincide exactamente con el resultado de V1+V2, solicita revisión/aprobación operativa y ejecuta manualmente el baseline en versión 2 con Flyway CLI/operación controlada. Baseline solo registra historial: no crea, valida ni corrige objetos.
-5. Si hay cualquier diferencia o incertidumbre, no hagas baseline. Diseña y ensaya una migración de transición sobre una copia restaurada; revisa el plan antes de producción.
-6. Solo después de esa revisión habilita el despliegue normal, donde Flyway podrá aplicar migraciones pendientes y Hibernate validará el mapeo.
+4. Si la estructura existente representa V1 y coincide con ella, repara primero las diferencias de V1 bajo un procedimiento revisado. Tras verificar el esquema, solicita aprobación operativa y aplica manualmente el baseline en versión 1. Baseline solo registra historial: no crea, valida ni corrige objetos.
+5. Ejecuta `flyway info` y confirma que V2 sea la migración pendiente. Solicita autorización independiente antes de `flyway migrate`; V2 crea `usuarios`.
+6. Si hay cualquier diferencia o incertidumbre, no hagas baseline ni migrate. Diseña y ensaya una transición sobre una copia restaurada; revisa el plan antes de producción.
+7. Despliega con perfil `prod` solo tras confirmar el esquema e historial: Flyway esta deshabilitado en este perfil y Hibernate `validate` comprueba el mapeo sin aplicar migraciones. Migraciones futuras requieren una operacion separada, controlada y aprobada.
 
 No se conectó a Supabase, no se ejecutó DDL ni baseline como parte de este runbook.
+
+### Estado de adopción reportado (11 de noviembre de 2026)
+
+- El operador confirmó que la reparación de V1 fue verificada, el baseline se estableció en versión 1 y V2 se aplicó.
+- La salida de Flyway visible en la terminal confirma validación de migraciones, versión actual 1 antes de migrar y aplicación exitosa de V2 hasta versión 2.
+- No repitas `baseline` ni `migrate`. En la verificación remota de solo lectura del 11-11-2026, `flyway info` mostró baseline V1 y V2 `Success`; `flyway validate` confirmó 3 migraciones. Antes del primer arranque de producción, inspecciona objetos por catálogo y valida el mapeo JPA con Flyway deshabilitado.
+- En esta sesión solo se ejecutaron `flyway info` y `flyway validate` con SSL; no hubo SQL de escritura. La integración PostgreSQL de Maven continúa omitida intencionalmente.
+
+## Resolución segura de IP cliente en Render
+
+- `server.forward-headers-strategy=none` se mantiene para conservar la dirección del peer en `request.getRemoteAddr()`.
+- En `prod`, `ClientIpResolver` ignora `CF-Connecting-IP`. Solo procesa `X-Forwarded-For` si el peer inmediato pertenece a una red en `APP_PROXY_TRUSTED_CIDRS`; valida la cadena como literales IP y recorre los saltos desde la derecha.
+- Mantén `APP_PROXY_TRUSTED_CIDRS` vacío hasta verificar las redes exactas de los proxies que aparecen como peer y dentro de la cadena. Con lista vacía, los límites usan el peer observado; en Render eso puede agrupar clientes detrás del balanceador.
+- Render documenta el uso de `X-Forwarded-For` para recuperar IP de cliente, pero la lista de confianza debe corresponder al camino real de la solicitud. No agregues rangos aportados por un request ni confíes en encabezados sin validar el peer.
 
 ## Crear el primer administrador
 

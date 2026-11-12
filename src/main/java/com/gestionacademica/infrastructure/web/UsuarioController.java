@@ -63,7 +63,9 @@ public class UsuarioController {
         this.clientIpResolver = clientIpResolver;
     }
 
-    @org.springframework.web.bind.annotation.PatchMapping("/{id}/access")
+    @org.springframework.web.bind.annotation.RequestMapping(path = "/{id}/access",
+            method = {org.springframework.web.bind.annotation.RequestMethod.PATCH,
+                    org.springframework.web.bind.annotation.RequestMethod.PUT})
     @Operation(summary = "Cambiar rol y estado", security = @SecurityRequirement(name = "bearerAuth"), description = "Requiere ADMIN.")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Acceso actualizado", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UsuarioResponse.class))), @ApiResponse(responseCode = "400", description = "Rol o estado no válido", content = @Content),
             @ApiResponse(responseCode = "401", description = "JWT ausente o inválido", content = @Content),

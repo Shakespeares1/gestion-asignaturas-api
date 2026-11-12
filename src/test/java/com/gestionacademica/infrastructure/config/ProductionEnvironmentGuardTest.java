@@ -17,6 +17,7 @@ class ProductionEnvironmentGuardTest {
             production.load(input);
         }
         assertEquals("validate", production.getProperty("spring.jpa.hibernate.ddl-auto"));
+        assertEquals("false", production.getProperty("spring.flyway.enabled"));
         assertEquals("require", production.getProperty("spring.datasource.hikari.data-source-properties.sslmode"));
         Properties defaults = new Properties();
         try (InputStream input = getClass().getResourceAsStream("/application.properties")) {
@@ -57,6 +58,11 @@ class ProductionEnvironmentGuardTest {
         updateSchema.setProperty("spring.jpa.hibernate.ddl-auto", "update");
         assertThrows(IllegalStateException.class,
                 () -> ProductionEnvironmentGuard.validateProductionEnvironment(updateSchema));
+
+        MockEnvironment runningMigrations = productionEnvironment();
+        runningMigrations.setProperty("spring.flyway.enabled", "true");
+        assertThrows(IllegalStateException.class,
+                () -> ProductionEnvironmentGuard.validateProductionEnvironment(runningMigrations));
 
         MockEnvironment trustingProxyHeaders = productionEnvironment();
         trustingProxyHeaders.setProperty("server.forward-headers-strategy", "framework");
@@ -125,6 +131,7 @@ class ProductionEnvironmentGuardTest {
         environment.setProperty("JWT_TTL_SECONDS", "900");
         environment.setProperty("JWT_ISSUER", "test-issuer");
         environment.setProperty("spring.jpa.hibernate.ddl-auto", "validate");
+        environment.setProperty("spring.flyway.enabled", "false");
         return environment;
     }
 }

@@ -22,7 +22,8 @@ import java.time.Instant;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
-@SpringBootTest
+@SpringBootTest(properties = {"management.endpoint.health.probes.enabled=true",
+        "management.endpoint.health.group.readiness.include=readinessState,db"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestSecurityBeans.class)
@@ -34,6 +35,13 @@ class AuthorizationIntegrationTest {
     @Test
     void peticionSinTokenNoAccedeAAsignaturas() throws Exception {
         mockMvc.perform(get("/api/asignaturas")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void probeDeReadinessEsPublicoYDevuelveEstadoUp() throws Exception {
+        mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
     }
 
     @Test
@@ -185,6 +193,57 @@ class AuthorizationIntegrationTest {
     }
 
     @Test
+    void adminPuedeCompletarCrudHttpDeAsignaturasYUserSoloConsulta() throws Exception {
+        String request = "{\"nombre\":\"HTTP API\",\"nombreCompleto\":\"HTTP API de prueba\","
+                + "\"descripcion\":\"Prueba MockMvc\",\"areaConocimiento\":\"Sistemas\","
+                + "\"carrera\":\"Ingeniería de Software\",\"numeroCreditos\":3,"
+                + "\"contenidoTematico\":\"API REST\",\"semestre\":5,\"profesor\":\"Docente de prueba\"}";
+        var created = mockMvc.perform(post("/api/asignaturas").with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nombre").value("HTTP API"))
+                .andReturn();
+        long id = Long.parseLong(created.getResponse().getContentAsString()
+                .replaceAll("(?s).*\"id\"\\s*:\\s*(\\d+).*", "$1"));
+
+        mockMvc.perform(get("/api/asignaturas").with(user("student").roles("USER")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/asignaturas/{id}", id).with(user("student").roles("USER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(id));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/asignaturas/{id}", id).with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request.replace("HTTP API", "HTTP API actualizada")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nombre").value("HTTP API actualizada"));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/asignaturas/{id}", id).with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/asignaturas/{id}", id).with(user("student").roles("USER")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminPuedeCompletarCrudHttpDeUsuarios() throws Exception {
+        Usuario saved = usuarios.guardar(Usuario.registrar("HTTP User", "http-user@example.org",
+                passwordHasher.hash("correct-password"), Instant.now()));
+
+        mockMvc.perform(get("/api/usuarios/{id}", saved.getId()).with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.email").value("http-user@example.org"));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/usuarios/{id}", saved.getId()).with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombreCompleto\":\"HTTP User actualizado\",\"email\":\"http-user-updated@example.org\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreCompleto").value("HTTP User actualizado"))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/usuarios/{id}", saved.getId()).with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/usuarios/{id}", saved.getId()).with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void userNoPuedeCambiarRole() throws Exception {
         Usuario saved = usuarios.guardar(Usuario.registrar("Protected", "protected@example.org",
                 passwordHasher.hash("correct-password"), Instant.now()));
@@ -211,6 +270,23 @@ class AuthorizationIntegrationTest {
                 .andExpect(jsonPath("$.accountStatus").value("INACTIVO"));
         Usuario updated = usuarios.buscarPorId(saved.getId()).orElseThrow();
         assertEquals(RolUsuario.ADMIN, updated.getRole());
+        assertEquals(EstadoCuenta.INACTIVO, updated.getAccountStatus());
+    }
+
+    @Test
+    void adminPuedeCambiarAccesoConPutParaClientesSinPatch() throws Exception {
+        Usuario saved = usuarios.guardar(Usuario.registrar("Managed by PUT", "managed-put@example.org",
+                passwordHasher.hash("correct-password"), Instant.now()));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/usuarios/{id}/access", saved.getId()).with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"USER\",\"accountStatus\":\"INACTIVO\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.accountStatus").value("INACTIVO"));
+        Usuario updated = usuarios.buscarPorId(saved.getId()).orElseThrow();
+        assertEquals(RolUsuario.USER, updated.getRole());
         assertEquals(EstadoCuenta.INACTIVO, updated.getAccountStatus());
     }
 
@@ -252,6 +328,8 @@ class AuthorizationIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/asignaturas']").exists())
                 .andExpect(jsonPath("$.paths['/api/auth/login']").exists())
                 .andExpect(jsonPath("$.paths['/api/reportes/usuarios/rol-estado']").exists())
+                .andExpect(jsonPath("$.paths['/api/usuarios/{id}/access'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/usuarios/{id}/access'].put").exists())
                 .andExpect(jsonPath("$.paths['/api/asignaturas'].get.responses['200'].content['application/json'].schema").exists())
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post.responses['200'].content['application/json'].schema").exists())
                 .andExpect(jsonPath("$.paths['/api/usuarios'].get.security[0].bearerAuth").exists())

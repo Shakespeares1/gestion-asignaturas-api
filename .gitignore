@@ -33,3 +33,13 @@ target/
 .env
 .env.*
 !.env.example
+.envrc
+.secrets/
+
+# Claves privadas, certificados y almacenes locales
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore

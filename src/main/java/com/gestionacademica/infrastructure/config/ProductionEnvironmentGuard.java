@@ -31,8 +31,11 @@ public class ProductionEnvironmentGuard {
         if (!"validate".equals(environment.getProperty("spring.jpa.hibernate.ddl-auto"))) {
             throw new IllegalStateException("Producción debe usar spring.jpa.hibernate.ddl-auto=validate");
         }
+        if (environment.getProperty("spring.flyway.enabled", Boolean.class, true)) {
+            throw new IllegalStateException("Producción debe mantener Flyway deshabilitado durante el arranque");
+        }
         if (!"none".equalsIgnoreCase(environment.getProperty("server.forward-headers-strategy", "none"))) {
-            throw new IllegalStateException("Producción debe ignorar encabezados proxy manipulables; usar CF-Connecting-IP para rate limit en Render");
+            throw new IllegalStateException("Producción debe conservar la IP del peer y validar los proxies reenviados explícitamente");
         }
         String jwtSecret = required(environment, "JWT_SECRET_BASE64");
         try {
