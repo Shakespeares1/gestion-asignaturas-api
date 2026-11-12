@@ -147,3 +147,8 @@ Revisar `git diff --check` y el estado de cambios locales sin alterar los archiv
 ### Publicacion
 
 - Pendiente al escribir este registro: stage exacto de los 22 archivos, validar el indice, crear commit descriptivo y publicar a `origin/main`; despues comprobar hash y sincronizacion.
+### Resultado de publicacion (verificado)
+
+- Commit principal publicado: `15a5899758b56b3a4ef05c0e9fd6b1cd53455bd4` (`Prepare secure Render deployment and Kodular API integration`), con los 22 archivos revisados.
+- `git push origin main` finalizo correctamente. `git ls-remote origin refs/heads/main` devolvio el mismo hash que `HEAD`; rama `main` quedo sincronizada con `origin/main`.
+- Se registra este resultado en el archivo de seguimiento; Render sigue sin desplegarse y no se modifico Supabase.
