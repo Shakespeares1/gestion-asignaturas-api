@@ -106,7 +106,8 @@ class ReportesPersistenceTest {
     }
 
     private void saveUser(String email, RolUsuario role, EstadoCuenta status, String created) {
-        usuarios.guardar(new Usuario(null, "Report User", email, "{bcrypt}test-hash", role, status,
+        usuarios.guardar(new Usuario(null, "report_" + email.substring(0, email.indexOf("@")), "Report User",
+                email, "{bcrypt}test-hash", role, status,
                 Instant.parse(created), null, null));
     }
 }
