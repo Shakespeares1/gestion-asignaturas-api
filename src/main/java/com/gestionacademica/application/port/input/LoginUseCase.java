@@ -5,5 +5,6 @@ import com.gestionacademica.application.port.output.JwtIssuerPort.IssuedToken;
 public interface LoginUseCase {
     LoginResult login(String email, String password);
 
-    record LoginResult(IssuedToken token, Long userId, String nombreCompleto, String email, String role) {}
+    record LoginResult(IssuedToken token, Long userId, String username, String nombreCompleto,
+            String email, String role) {}
 }

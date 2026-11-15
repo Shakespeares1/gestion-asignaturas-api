@@ -5,10 +5,10 @@ import com.gestionacademica.domain.model.RolUsuario;
 import com.gestionacademica.domain.model.Usuario;
 import java.time.Instant;
 
-public record UsuarioResponse(Long id, String nombreCompleto, String email, RolUsuario role,
-        EstadoCuenta accountStatus, Instant fechaCreacion) {
+public record UsuarioResponse(Long id, String username, String nombreCompleto, String email,
+        RolUsuario role, EstadoCuenta accountStatus, Instant fechaCreacion) {
     public static UsuarioResponse from(Usuario usuario) {
-        return new UsuarioResponse(usuario.getId(), usuario.getNombreCompleto(), usuario.getEmail(),
-                usuario.getRole(), usuario.getAccountStatus(), usuario.getFechaCreacion());
+        return new UsuarioResponse(usuario.getId(), usuario.getUsername(), usuario.getNombreCompleto(),
+                usuario.getEmail(), usuario.getRole(), usuario.getAccountStatus(), usuario.getFechaCreacion());
     }
 }

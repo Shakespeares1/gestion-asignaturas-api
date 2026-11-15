@@ -9,6 +9,7 @@ import com.gestionacademica.application.port.input.ObtenerUsuarioUseCase;
 import com.gestionacademica.application.service.ContrasenaInvalidaException;
 import com.gestionacademica.application.service.EmailUsuarioDuplicadoException;
 import com.gestionacademica.application.service.UsuarioNoEncontradoException;
+import com.gestionacademica.application.service.UsernameUsuarioDuplicadoException;
 import com.gestionacademica.infrastructure.web.dto.ActualizarUsuarioRequest;
 import com.gestionacademica.infrastructure.web.dto.ActualizarAccesoUsuarioRequest;
 import com.gestionacademica.infrastructure.web.dto.CrearUsuarioRequest;
@@ -84,12 +85,15 @@ public class UsuarioController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Registrar usuario", description = "Público. El rol y el estado se asignan como USER y ACTIVO; el cliente no puede enviar ADMIN.")
     @ApiResponses({@ApiResponse(responseCode = "201", description = "Usuario creado con rol USER y estado ACTIVO", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UsuarioResponse.class))), @ApiResponse(responseCode = "400", description = "Solicitud inválida", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Email ya registrado", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Email o username ya registrado", content = @Content),
             @ApiResponse(responseCode = "429", description = "Se superó el límite de intentos; consultar Retry-After", content = @Content)})
     public UsuarioResponse crear(@Valid @RequestBody CrearUsuarioRequest request, HttpServletRequest servletRequest) {
         rateLimiter.checkAccount(RateLimitedOperation.REGISTER, clientIpResolver.resolve(servletRequest), request.getEmail());
         try {
-            return UsuarioResponse.from(crear.crear(request.getNombreCompleto(), request.getEmail(), request.getPassword()));
+            return UsuarioResponse.from(crear.crear(request.getUsername(), request.getNombreCompleto(),
+                    request.getEmail(), request.getPassword()));
+        } catch (UsernameUsuarioDuplicadoException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getMessage());
         } catch (EmailUsuarioDuplicadoException exception) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getMessage());
         } catch (ContrasenaInvalidaException exception) {
@@ -116,7 +120,7 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Actualizar datos públicos del usuario", security = @SecurityRequirement(name = "bearerAuth"), description = "Requiere ADMIN. Solo cambia nombre y email.")
+    @Operation(summary = "Actualizar datos públicos del usuario", security = @SecurityRequirement(name = "bearerAuth"), description = "Requiere ADMIN. Cambia nombre, email y, si se envía, username.")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Usuario actualizado", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UsuarioResponse.class))), @ApiResponse(responseCode = "400", description = "Solicitud inválida", content = @Content),
             @ApiResponse(responseCode = "401", description = "JWT ausente o inválido", content = @Content),
             @ApiResponse(responseCode = "403", description = "Se requiere ADMIN", content = @Content),
@@ -124,10 +128,11 @@ public class UsuarioController {
             @ApiResponse(responseCode = "409", description = "Email ya registrado", content = @Content)})
     public UsuarioResponse actualizar(@PathVariable Long id, @Valid @RequestBody ActualizarUsuarioRequest request) {
         try {
-            return UsuarioResponse.from(actualizar.actualizar(id, request.nombreCompleto(), request.email()));
+            return UsuarioResponse.from(actualizar.actualizar(id, request.username(),
+                    request.nombreCompleto(), request.email()));
         } catch (UsuarioNoEncontradoException exception) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, exception.getMessage());
-        } catch (EmailUsuarioDuplicadoException exception) {
+        } catch (UsernameUsuarioDuplicadoException | EmailUsuarioDuplicadoException exception) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getMessage());
         }
     }

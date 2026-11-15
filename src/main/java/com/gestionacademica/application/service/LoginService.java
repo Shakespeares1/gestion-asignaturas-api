@@ -31,6 +31,7 @@ public class LoginService implements LoginUseCase {
         if (user.getAccountStatus() != EstadoCuenta.ACTIVO) throw new CuentaInactivaException();
         if (!passwords.matches(password, user.getPasswordHash())) throw new CredencialesInvalidasException();
         JwtIssuerPort.IssuedToken token = jwtIssuer.issue(user);
-        return new LoginResult(token, user.getId(), user.getNombreCompleto(), user.getEmail(), user.getRole().name());
+        return new LoginResult(token, user.getId(), user.getUsername(), user.getNombreCompleto(),
+                user.getEmail(), user.getRole().name());
     }
 }

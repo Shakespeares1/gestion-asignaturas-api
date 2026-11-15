@@ -24,7 +24,7 @@ class FlywayMigrationIntegrationTest {
 
     @Test
     void ejecutaMigracionesVersionadasAntesDeLaValidacionJpa() {
-        assertEquals("2", flyway.info().current().getVersion().getVersion());
+        assertEquals("3", flyway.info().current().getVersion().getVersion());
         assertDoesNotThrow(flyway::validate);
         assertEquals(1, jdbcTemplate.queryForObject(
                 "select count(*) from information_schema.tables where table_name = 'ASIGNATURAS'", Integer.class));
@@ -39,16 +39,16 @@ class FlywayMigrationIntegrationTest {
                 "insert into asignaturas (nombre, nombre_completo, numero_creditos, semestre) values (?, ?, ?, ?)",
                 "Bases de datos", "Bases de datos", 0, 1));
         jdbcTemplate.update(
-                "insert into usuarios (nombre_completo, email, password_hash, user_role, account_status, fecha_creacion) "
-                        + "values (?, ?, ?, ?, ?, current_timestamp)",
-                "Usuario", email, "hash", "ADMIN", "ACTIVO");
+                "insert into usuarios (username, nombre_completo, email, password_hash, user_role, account_status, fecha_creacion) "
+                        + "values (?, ?, ?, ?, ?, ?, current_timestamp)",
+                "migration-admin", "Usuario", email, "hash", "ADMIN", "ACTIVO");
         assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
-                "insert into usuarios (nombre_completo, email, password_hash, user_role, account_status, fecha_creacion) "
-                        + "values (?, ?, ?, ?, ?, current_timestamp)",
-                "Otro", email, "hash", "USER", "ACTIVO"));
+                "insert into usuarios (username, nombre_completo, email, password_hash, user_role, account_status, fecha_creacion) "
+                        + "values (?, ?, ?, ?, ?, ?, current_timestamp)",
+                "migration-other", "Otro", email, "hash", "USER", "ACTIVO"));
         assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
-                "insert into usuarios (nombre_completo, email, password_hash, user_role, account_status, fecha_creacion, reset_token_hash) "
-                        + "values (?, ?, ?, ?, ?, current_timestamp, ?)",
-                "Token incompleto", "token-pair@example.org", "hash", "USER", "ACTIVO", "token-hash"));
+                "insert into usuarios (username, nombre_completo, email, password_hash, user_role, account_status, fecha_creacion, reset_token_hash) "
+                        + "values (?, ?, ?, ?, ?, ?, current_timestamp, ?)",
+                "token-incomplete", "Token incompleto", "token-pair@example.org", "hash", "USER", "ACTIVO", "token-hash"));
     }
 }

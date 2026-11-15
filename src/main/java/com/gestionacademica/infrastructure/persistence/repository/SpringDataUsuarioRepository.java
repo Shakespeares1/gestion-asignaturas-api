@@ -1,19 +1,20 @@
 package com.gestionacademica.infrastructure.persistence.repository;
 
-import com.gestionacademica.infrastructure.persistence.entity.UsuarioEntity;
-import java.util.Optional;
-import java.time.Instant;
 import com.gestionacademica.domain.model.EstadoCuenta;
 import com.gestionacademica.domain.model.RolUsuario;
+import com.gestionacademica.infrastructure.persistence.entity.UsuarioEntity;
+import java.time.Instant;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface SpringDataUsuarioRepository extends JpaRepository<UsuarioEntity, Long>,
         JpaSpecificationExecutor<UsuarioEntity> {
     Optional<UsuarioEntity> findByEmail(String email);
+    Optional<UsuarioEntity> findByUsername(String username);
     boolean existsByRole(RolUsuario role);
     Optional<UsuarioEntity> findByResetTokenHash(String resetTokenHash);
 

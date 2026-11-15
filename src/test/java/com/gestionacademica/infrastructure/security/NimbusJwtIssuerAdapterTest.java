@@ -67,7 +67,7 @@ class NimbusJwtIssuerAdapterTest {
     }
 
     private static Usuario user() {
-        return new Usuario(42L, "Test User", "user@example.org", "{bcrypt}hash", RolUsuario.ADMIN,
+        return new Usuario(42L, "test-user", "Test User", "user@example.org", "{bcrypt}hash", RolUsuario.ADMIN,
                 EstadoCuenta.ACTIVO, NOW, null, null);
     }
 }

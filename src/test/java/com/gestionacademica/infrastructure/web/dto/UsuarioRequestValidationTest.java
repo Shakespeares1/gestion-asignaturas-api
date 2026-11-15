@@ -11,8 +11,9 @@ import org.junit.jupiter.api.Test;
 
 class UsuarioRequestValidationTest {
     @Test
-    void rechazaCamposRequeridosVaciosYEmailInvalido() {
+    void rechazaCamposRequeridosVaciosIncluyendoUsernameYEmailInvalido() {
         CrearUsuarioRequest request = new CrearUsuarioRequest();
+        request.setUsername(" ");
         request.setNombreCompleto(" ");
         request.setEmail("no-es-correo");
         request.setPassword("");
@@ -21,12 +22,13 @@ class UsuarioRequestValidationTest {
                 .map(violation -> violation.getPropertyPath().toString())
                 .collect(Collectors.toSet());
 
-        assertEquals(Set.of("nombreCompleto", "email", "password"), invalidFields);
+        assertEquals(Set.of("username", "nombreCompleto", "email", "password"), invalidFields);
     }
 
     @Test
-    void aceptaDatosRequeridosValidosSinRecibirCamposProtegidos() {
+    void aceptaDatosValidosYNoRecibeCamposProtegidos() {
         CrearUsuarioRequest request = new CrearUsuarioRequest();
+        request.setUsername("Ada.Lovelace");
         request.setNombreCompleto("Ada Lovelace");
         request.setEmail("ada@example.org");
         request.setPassword("sample-only-password");
@@ -43,10 +45,19 @@ class UsuarioRequestValidationTest {
     }
 
     @Test
+    void usernameDebeCumplirLongitudYFormato() {
+        CrearUsuarioRequest request = validRequest();
+        request.setUsername("ab");
+        assertTrue(validar(request).stream().anyMatch(v -> v.getPropertyPath().toString().equals("username")));
+        request.setUsername("bad@name");
+        assertTrue(validar(request).stream().anyMatch(v -> v.getPropertyPath().toString().equals("username")));
+        request.setUsername("a".repeat(31));
+        assertTrue(validar(request).stream().anyMatch(v -> v.getPropertyPath().toString().equals("username")));
+    }
+
+    @Test
     void aplicaPoliticaComunARegistroYRestablecimientoEnLaEntradaRest() {
-        CrearUsuarioRequest registration = new CrearUsuarioRequest();
-        registration.setNombreCompleto("Ada Lovelace");
-        registration.setEmail("ada@example.org");
+        CrearUsuarioRequest registration = validRequest();
         registration.setPassword("short-pass");
         assertTrue(validar(registration).stream().anyMatch(v -> v.getPropertyPath().toString().equals("password")));
 
@@ -68,7 +79,7 @@ class UsuarioRequestValidationTest {
     }
 
     @Test
-    void politicaNoCambiaValidacionDeLoginParaUsuariosConContrasenasAnteriores() {
+    void politicaNoCambiaLoginPorEmailNiContrasenasHistoricas() {
         LoginRequest login = new LoginRequest();
         login.setEmail("legacy@example.org");
         login.setPassword("old-pass");
@@ -76,11 +87,12 @@ class UsuarioRequestValidationTest {
     }
 
     @Test
-    void respuestaNoDeclaraCamposDeContrasenaNiRecuperacion() {
+    void respuestaIncluyeUsernamePeroNuncaCamposDeContrasenaNiRecuperacion() {
         Set<String> properties = java.util.Arrays.stream(UsuarioResponse.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName)
                 .collect(Collectors.toSet());
 
+        assertTrue(properties.contains("username"));
         assertFalse(properties.contains("password"));
         assertFalse(properties.contains("passwordHash"));
         assertFalse(properties.contains("resetTokenHash"));
@@ -88,18 +100,37 @@ class UsuarioRequestValidationTest {
     }
 
     @Test
-    void dtoDeActualizacionNoAceptaCamposProtegidos() {
+    void dtoDeActualizacionAceptaUsernameOpcionalParaClientesAnteriores() {
         Set<String> fields = java.util.Arrays.stream(ActualizarUsuarioRequest.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName)
                 .collect(Collectors.toSet());
 
-        assertEquals(Set.of("nombreCompleto", "email"), fields);
+        assertEquals(Set.of("nombreCompleto", "email", "username"), fields);
+        var legacyRequest = new ActualizarUsuarioRequest("Ada", "ada@example.org", null);
+        assertNull(legacyRequest.username());
+        assertTrue(validar(legacyRequest).isEmpty());
+    }
+
+    private static CrearUsuarioRequest validRequest() {
+        CrearUsuarioRequest request = new CrearUsuarioRequest();
+        request.setUsername("valid-user");
+        request.setNombreCompleto("Ada Lovelace");
+        request.setEmail("ada@example.org");
+        request.setPassword("sample-only-password");
+        return request;
     }
 
     private static Set<jakarta.validation.ConstraintViolation<CrearUsuarioRequest>> validar(CrearUsuarioRequest request) {
         try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
             Validator validator = factory.getValidator();
             return validator.validate(request);
+        }
+    }
+
+    private static Set<jakarta.validation.ConstraintViolation<ActualizarUsuarioRequest>> validar(
+            ActualizarUsuarioRequest request) {
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+            return factory.getValidator().validate(request);
         }
     }
 

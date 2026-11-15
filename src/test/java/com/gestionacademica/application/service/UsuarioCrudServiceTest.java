@@ -2,7 +2,6 @@ package com.gestionacademica.application.service;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.gestionacademica.application.port.output.PasswordHasherPort;
 import com.gestionacademica.application.port.output.UsuarioRepositoryPort;
 import com.gestionacademica.domain.model.EstadoCuenta;
 import com.gestionacademica.domain.model.RolUsuario;
@@ -31,9 +30,11 @@ class UsuarioCrudServiceTest {
     }
 
     @Test
-    void creaUsuarioNormalizandoEmailYGuardandoSoloHash() {
-        Usuario created = service.crear("Ada Lovelace", " ADA@Example.org ", "plain-test-input");
+    void creaUsuarioNormalizandoUsernameYEmailYGuardandoSoloHash() {
+        Usuario created = service.crear("Ada.One", "Ada Lovelace",
+                " ADA@Example.org ", "plain-test-input");
 
+        assertEquals("ada.one", created.getUsername());
         assertEquals("ada@example.org", created.getEmail());
         assertEquals("{test}hash-plain-test-input", created.getPasswordHash());
         assertNotEquals("plain-test-input", created.getPasswordHash());
@@ -43,8 +44,22 @@ class UsuarioCrudServiceTest {
     }
 
     @Test
+    void rechazaUsernameDuplicadoSinDistinguirMayusculasAntesDeProcesarPassword() {
+        repository.guardar(usuario(null, "existing", "user@example.org", "{bcrypt}existing"));
+        AtomicBoolean hasherCalled = new AtomicBoolean();
+        service = new UsuarioCrudService(repository, password -> {
+            hasherCalled.set(true);
+            return "{test}hash";
+        }, Clock.fixed(NOW, ZoneOffset.UTC));
+
+        assertThrows(UsernameUsuarioDuplicadoException.class,
+                () -> service.crear("EXISTING", "Otra persona", "other@example.org", "valid-long-password"));
+        assertFalse(hasherCalled.get());
+    }
+
+    @Test
     void rechazaEmailDuplicadoSinProcesarLaContrasena() {
-        repository.guardar(usuario(null, "user@example.org", "{bcrypt}existing"));
+        repository.guardar(usuario(null, "first", "user@example.org", "{bcrypt}existing"));
         AtomicBoolean hasherCalled = new AtomicBoolean();
         service = new UsuarioCrudService(repository, password -> {
             hasherCalled.set(true);
@@ -52,7 +67,7 @@ class UsuarioCrudServiceTest {
         }, Clock.fixed(NOW, ZoneOffset.UTC));
 
         assertThrows(EmailUsuarioDuplicadoException.class,
-                () -> service.crear("Otra persona", " USER@example.org ", "valid-long-password"));
+                () -> service.crear("another", "Otra persona", " USER@example.org ", "valid-long-password"));
         assertFalse(hasherCalled.get());
     }
 
@@ -65,13 +80,13 @@ class UsuarioCrudServiceTest {
         }, Clock.fixed(NOW, ZoneOffset.UTC));
 
         assertThrows(ContrasenaInvalidaException.class,
-                () -> service.crear("Nombre", "new@example.org", "short-pass"));
+                () -> service.crear("new-user", "Nombre", "new@example.org", "short-pass"));
         assertFalse(hasherCalled.get());
     }
 
     @Test
     void permiteConsultarYListarUsuarios() {
-        Usuario saved = repository.guardar(usuario(null, "user@example.org", "{bcrypt}hash"));
+        Usuario saved = repository.guardar(usuario(null, "user", "user@example.org", "{bcrypt}hash"));
 
         assertEquals(List.of(saved), service.listar());
         assertEquals(Optional.of(saved), service.obtener(saved.getId()));
@@ -79,14 +94,15 @@ class UsuarioCrudServiceTest {
     }
 
     @Test
-    void actualizaSoloDatosEditablesYConservaCamposProtegidos() {
+    void actualizaUsernameYDatosEditablesYConservaCamposProtegidos() {
         Instant expiry = NOW.plusSeconds(600);
-        Usuario saved = repository.guardar(new Usuario(null, "Nombre anterior", "user@example.org",
-                "{bcrypt}secret-hash", RolUsuario.ADMIN, EstadoCuenta.INACTIVO, NOW,
-                "reset-hash", expiry));
+        Usuario saved = repository.guardar(new Usuario(null, "old-user", "Nombre anterior",
+                "user@example.org", "{bcrypt}secret-hash", RolUsuario.ADMIN,
+                EstadoCuenta.INACTIVO, NOW, "reset-hash", expiry));
 
-        Usuario updated = service.actualizar(saved.getId(), "Nombre nuevo", " NEW@example.org ");
+        Usuario updated = service.actualizar(saved.getId(), "New.User", "Nombre nuevo", " NEW@example.org ");
 
+        assertEquals("new.user", updated.getUsername());
         assertEquals("Nombre nuevo", updated.getNombreCompleto());
         assertEquals("new@example.org", updated.getEmail());
         assertEquals("{bcrypt}secret-hash", updated.getPasswordHash());
@@ -98,17 +114,36 @@ class UsuarioCrudServiceTest {
     }
 
     @Test
+    void mantieneUsernameCuandoClienteAnteriorNoLoEnviaEnActualizacion() {
+        Usuario saved = repository.guardar(usuario(null, "existing", "user@example.org", "{bcrypt}hash"));
+
+        Usuario updated = service.actualizar(saved.getId(), null, "Nuevo nombre", "new@example.org");
+
+        assertEquals("existing", updated.getUsername());
+        assertEquals("new@example.org", updated.getEmail());
+    }
+
+    @Test
+    void rechazaUsernameDuplicadoAlActualizar() {
+        Usuario first = repository.guardar(usuario(null, "first", "first@example.org", "{bcrypt}one"));
+        repository.guardar(usuario(null, "second", "second@example.org", "{bcrypt}two"));
+
+        assertThrows(UsernameUsuarioDuplicadoException.class,
+                () -> service.actualizar(first.getId(), "SECOND", "Nombre", "first@example.org"));
+    }
+
+    @Test
     void rechazaCorreoDuplicadoAlActualizar() {
-        Usuario first = repository.guardar(usuario(null, "first@example.org", "{bcrypt}one"));
-        repository.guardar(usuario(null, "second@example.org", "{bcrypt}two"));
+        Usuario first = repository.guardar(usuario(null, "first", "first@example.org", "{bcrypt}one"));
+        repository.guardar(usuario(null, "second", "second@example.org", "{bcrypt}two"));
 
         assertThrows(EmailUsuarioDuplicadoException.class,
-                () -> service.actualizar(first.getId(), "Nombre", "SECOND@example.org"));
+                () -> service.actualizar(first.getId(), "first", "Nombre", "SECOND@example.org"));
     }
 
     @Test
     void eliminaUsuarioExistenteYReportaCuandoNoExiste() {
-        Usuario saved = repository.guardar(usuario(null, "user@example.org", "{bcrypt}hash"));
+        Usuario saved = repository.guardar(usuario(null, "user", "user@example.org", "{bcrypt}hash"));
 
         assertTrue(service.eliminar(saved.getId()));
         assertTrue(service.obtener(saved.getId()).isEmpty());
@@ -118,11 +153,11 @@ class UsuarioCrudServiceTest {
     @Test
     void actualizacionDeUsuarioInexistenteFallaConExcepcionDeDominioDeAplicacion() {
         assertThrows(UsuarioNoEncontradoException.class,
-                () -> service.actualizar(999L, "Nombre", "user@example.org"));
+                () -> service.actualizar(999L, null, "Nombre", "user@example.org"));
     }
 
-    private static Usuario usuario(Long id, String email, String hash) {
-        return new Usuario(id, "Usuario de prueba", email, hash, RolUsuario.USER,
+    private static Usuario usuario(Long id, String username, String email, String hash) {
+        return new Usuario(id, username, "Usuario de prueba", email, hash, RolUsuario.USER,
                 EstadoCuenta.ACTIVO, NOW, null, null);
     }
 
@@ -133,9 +168,9 @@ class UsuarioCrudServiceTest {
         @Override
         public Usuario guardar(Usuario usuario) {
             Usuario saved = new Usuario(usuario.getId() == null ? nextId++ : usuario.getId(),
-                    usuario.getNombreCompleto(), usuario.getEmail(), usuario.getPasswordHash(),
-                    usuario.getRole(), usuario.getAccountStatus(), usuario.getFechaCreacion(),
-                    usuario.getResetTokenHash(), usuario.getResetTokenExpiry());
+                    usuario.getUsername(), usuario.getNombreCompleto(), usuario.getEmail(),
+                    usuario.getPasswordHash(), usuario.getRole(), usuario.getAccountStatus(),
+                    usuario.getFechaCreacion(), usuario.getResetTokenHash(), usuario.getResetTokenExpiry());
             usuarios.put(saved.getId(), saved);
             return saved;
         }
@@ -144,6 +179,9 @@ class UsuarioCrudServiceTest {
         @Override public Optional<Usuario> buscarPorId(Long id) { return Optional.ofNullable(usuarios.get(id)); }
         @Override public Optional<Usuario> buscarPorEmail(String email) {
             return usuarios.values().stream().filter(user -> user.getEmail().equals(email)).findFirst();
+        }
+        @Override public Optional<Usuario> buscarPorUsername(String username) {
+            return usuarios.values().stream().filter(user -> user.getUsername().equals(username)).findFirst();
         }
         @Override public boolean existePorRol(RolUsuario role) {
             return usuarios.values().stream().anyMatch(user -> user.getRole() == role);
@@ -154,8 +192,9 @@ class UsuarioCrudServiceTest {
         @Override public boolean restablecerPasswordSiTokenVigente(String tokenHash, Instant ahora, String nuevoPasswordHash) {
             Usuario user = buscarPorHashTokenRecuperacion(tokenHash).orElse(null);
             if (user == null || user.getResetTokenExpiry() == null || !user.getResetTokenExpiry().isAfter(ahora)) return false;
-            usuarios.put(user.getId(), new Usuario(user.getId(), user.getNombreCompleto(), user.getEmail(),
-                    nuevoPasswordHash, user.getRole(), user.getAccountStatus(), user.getFechaCreacion(), null, null));
+            usuarios.put(user.getId(), new Usuario(user.getId(), user.getUsername(), user.getNombreCompleto(),
+                    user.getEmail(), nuevoPasswordHash, user.getRole(), user.getAccountStatus(),
+                    user.getFechaCreacion(), null, null));
             return true;
         }
         @Override public void eliminarPorId(Long id) { usuarios.remove(id); }

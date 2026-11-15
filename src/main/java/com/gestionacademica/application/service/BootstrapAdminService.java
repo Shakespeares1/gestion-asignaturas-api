@@ -24,7 +24,8 @@ public final class BootstrapAdminService implements BootstrapAdminUseCase {
     }
 
     @Override
-    public Usuario crearPrimerAdministrador(String nombreCompleto, String email, String password) {
+    public Usuario crearPrimerAdministrador(String username, String nombreCompleto, String email, String password) {
+        String normalizedUsername = Usuario.normalizarUsername(username);
         String normalizedEmail = Usuario.normalizarEmail(email);
         if (nombreCompleto == null || nombreCompleto.isBlank()) {
             throw new IllegalArgumentException("El nombre completo es obligatorio");
@@ -33,6 +34,7 @@ public final class BootstrapAdminService implements BootstrapAdminUseCase {
 
         lock.bloquearInicializacion();
         if (usuarios.existePorRol(RolUsuario.ADMIN)) throw new AdminBootstrapAlreadyCompletedException();
+        if (usuarios.buscarPorUsername(normalizedUsername).isPresent()) throw new UsernameUsuarioDuplicadoException();
         if (usuarios.buscarPorEmail(normalizedEmail).isPresent()) throw new EmailUsuarioDuplicadoException();
 
         String passwordHash = passwordHasher.hash(password);
@@ -40,6 +42,6 @@ public final class BootstrapAdminService implements BootstrapAdminUseCase {
             throw new IllegalStateException("El servicio de hash no produjo un hash seguro");
         }
         return usuarios.guardar(Usuario.registrarAdministradorInicial(
-                nombreCompleto, normalizedEmail, passwordHash, clock.instant()));
+                normalizedUsername, nombreCompleto, normalizedEmail, passwordHash, clock.instant()));
     }
 }

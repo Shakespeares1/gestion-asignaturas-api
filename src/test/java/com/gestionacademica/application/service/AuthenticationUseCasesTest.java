@@ -149,7 +149,7 @@ class AuthenticationUseCasesTest {
     }
 
     private static Usuario user(Long id, EstadoCuenta state, RolUsuario role, String tokenHash, Instant expiry) {
-        return new Usuario(id, "Test User", "user@example.org", "stored-hash", role, state, NOW, tokenHash, expiry);
+        return new Usuario(id, "test-user", "Test User", "user@example.org", "stored-hash", role, state, NOW, tokenHash, expiry);
     }
 
     private static final class TestTokens implements PasswordResetTokenPort {
@@ -178,8 +178,8 @@ class AuthenticationUseCasesTest {
         long nextId = 1;
         int emailLookups;
         @Override public Usuario guardar(Usuario user) {
-            Usuario saved = new Usuario(user.getId() == null ? nextId++ : user.getId(), user.getNombreCompleto(),
-                    user.getEmail(), user.getPasswordHash(), user.getRole(), user.getAccountStatus(),
+            Usuario saved = new Usuario(user.getId() == null ? nextId++ : user.getId(), user.getUsername(),
+                    user.getNombreCompleto(), user.getEmail(), user.getPasswordHash(), user.getRole(), user.getAccountStatus(),
                     user.getFechaCreacion(), user.getResetTokenHash(), user.getResetTokenExpiry());
             byId.put(saved.getId(), saved);
             return saved;
@@ -189,6 +189,9 @@ class AuthenticationUseCasesTest {
         @Override public Optional<Usuario> buscarPorEmail(String email) {
             emailLookups++;
             return byId.values().stream().filter(user -> user.getEmail().equals(email)).findFirst();
+        }
+        @Override public Optional<Usuario> buscarPorUsername(String username) {
+            return byId.values().stream().filter(user -> user.getUsername().equals(username)).findFirst();
         }
         @Override public boolean existePorRol(RolUsuario role) {
             return byId.values().stream().anyMatch(user -> user.getRole() == role);
@@ -200,8 +203,8 @@ class AuthenticationUseCasesTest {
             Usuario user = buscarPorHashTokenRecuperacion(hash).orElse(null);
             if (user == null || user.getAccountStatus() != EstadoCuenta.ACTIVO
                     || user.getResetTokenExpiry() == null || !user.getResetTokenExpiry().isAfter(now)) return false;
-            byId.put(user.getId(), new Usuario(user.getId(), user.getNombreCompleto(), user.getEmail(), newHash,
-                    user.getRole(), user.getAccountStatus(), user.getFechaCreacion(), null, null));
+            byId.put(user.getId(), new Usuario(user.getId(), user.getUsername(), user.getNombreCompleto(),
+                    user.getEmail(), newHash, user.getRole(), user.getAccountStatus(), user.getFechaCreacion(), null, null));
             return true;
         }
         @Override public void eliminarPorId(Long id) { byId.remove(id); }

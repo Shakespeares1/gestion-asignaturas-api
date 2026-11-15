@@ -5,11 +5,14 @@ import java.util.Locale;
 import java.util.Objects;
 
 public final class Usuario {
+    public static final int MIN_USERNAME = 3;
+    public static final int MAX_USERNAME = 30;
     public static final int MAX_EMAIL = 254;
     public static final int MAX_PASSWORD_HASH = 255;
     public static final int MAX_RESET_TOKEN_HASH = 255;
 
     private final Long id;
+    private final String username;
     private final String nombreCompleto;
     private final String email;
     private final String passwordHash;
@@ -19,12 +22,13 @@ public final class Usuario {
     private final String resetTokenHash;
     private final Instant resetTokenExpiry;
 
-    public Usuario(Long id, String nombreCompleto, String email, String passwordHash,
+    public Usuario(Long id, String username, String nombreCompleto, String email, String passwordHash,
             RolUsuario role, EstadoCuenta accountStatus, Instant fechaCreacion,
             String resetTokenHash, Instant resetTokenExpiry) {
         if (nombreCompleto == null || nombreCompleto.isBlank()) {
             throw new IllegalArgumentException("El nombre completo es obligatorio");
         }
+        String normalizedUsername = normalizarUsername(username);
         String normalizedEmail = normalizarEmail(email);
         validarMaximo(passwordHash, MAX_PASSWORD_HASH, "El hash de contraseña", false);
         if (role == null) throw new IllegalArgumentException("El rol es obligatorio");
@@ -36,6 +40,7 @@ public final class Usuario {
         validarMaximo(resetTokenHash, MAX_RESET_TOKEN_HASH, "El hash del token de recuperación", true);
 
         this.id = id;
+        this.username = normalizedUsername;
         this.nombreCompleto = nombreCompleto.trim();
         this.email = normalizedEmail;
         this.passwordHash = passwordHash;
@@ -46,35 +51,49 @@ public final class Usuario {
         this.resetTokenExpiry = resetTokenExpiry;
     }
 
-    public static Usuario registrar(String nombreCompleto, String email, String passwordHash, Instant fechaCreacion) {
-        return new Usuario(null, nombreCompleto, email, passwordHash, RolUsuario.USER,
-                EstadoCuenta.ACTIVO, fechaCreacion, null, null);
-    }
-
-    public static Usuario registrarAdministradorInicial(String nombreCompleto, String email,
+    public static Usuario registrar(String username, String nombreCompleto, String email,
             String passwordHash, Instant fechaCreacion) {
-        return new Usuario(null, nombreCompleto, email, passwordHash, RolUsuario.ADMIN,
+        return new Usuario(null, username, nombreCompleto, email, passwordHash, RolUsuario.USER,
                 EstadoCuenta.ACTIVO, fechaCreacion, null, null);
     }
 
-    public Usuario actualizarDatos(String nuevoNombreCompleto, String nuevoEmail) {
-        return new Usuario(id, nuevoNombreCompleto, nuevoEmail, passwordHash, role,
+    public static Usuario registrarAdministradorInicial(String username, String nombreCompleto,
+            String email, String passwordHash, Instant fechaCreacion) {
+        return new Usuario(null, username, nombreCompleto, email, passwordHash, RolUsuario.ADMIN,
+                EstadoCuenta.ACTIVO, fechaCreacion, null, null);
+    }
+
+    public Usuario actualizarDatos(String nuevoUsername, String nuevoNombreCompleto, String nuevoEmail) {
+        return new Usuario(id, nuevoUsername, nuevoNombreCompleto, nuevoEmail, passwordHash, role,
                 accountStatus, fechaCreacion, resetTokenHash, resetTokenExpiry);
     }
 
     public Usuario conTokenRecuperacion(String tokenHash, Instant expiry) {
-        return new Usuario(id, nombreCompleto, email, passwordHash, role, accountStatus,
+        return new Usuario(id, username, nombreCompleto, email, passwordHash, role, accountStatus,
                 fechaCreacion, tokenHash, expiry);
     }
 
     public Usuario limpiarTokenRecuperacion() {
-        return new Usuario(id, nombreCompleto, email, passwordHash, role, accountStatus,
+        return new Usuario(id, username, nombreCompleto, email, passwordHash, role, accountStatus,
                 fechaCreacion, null, null);
     }
 
     public Usuario actualizarAcceso(RolUsuario nuevoRole, EstadoCuenta nuevoEstado) {
-        return new Usuario(id, nombreCompleto, email, passwordHash, nuevoRole, nuevoEstado,
+        return new Usuario(id, username, nombreCompleto, email, passwordHash, nuevoRole, nuevoEstado,
                 fechaCreacion, resetTokenHash, resetTokenExpiry);
+    }
+
+    public static String normalizarUsername(String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("El username es obligatorio");
+        }
+        String normalized = username.toLowerCase(Locale.ROOT);
+        if (normalized.length() < MIN_USERNAME || normalized.length() > MAX_USERNAME
+                || !normalized.matches("[a-z0-9][a-z0-9._-]{1,28}[a-z0-9]")) {
+            throw new IllegalArgumentException("El username debe tener entre 3 y 30 caracteres, "
+                    + "iniciar y terminar con letra o número, y usar solo letras, números, punto, guion o guion bajo");
+        }
+        return normalized;
     }
 
     public static String normalizarEmail(String email) {
@@ -97,6 +116,7 @@ public final class Usuario {
     }
 
     public Long getId() { return id; }
+    public String getUsername() { return username; }
     public String getNombreCompleto() { return nombreCompleto; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }

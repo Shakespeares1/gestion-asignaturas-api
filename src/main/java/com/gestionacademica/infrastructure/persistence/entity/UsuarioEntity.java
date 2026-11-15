@@ -19,7 +19,10 @@ import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "usuarios",
-        uniqueConstraints = @UniqueConstraint(name = "uk_usuarios_email", columnNames = "email"),
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_usuarios_email", columnNames = "email"),
+                @UniqueConstraint(name = "uk_usuarios_username", columnNames = "username")
+        },
         indexes = {
                 @Index(name = "idx_usuarios_user_role_account_status", columnList = "user_role, account_status"),
                 @Index(name = "idx_usuarios_fecha_creacion", columnList = "fecha_creacion")
@@ -27,9 +30,12 @@ import org.hibernate.type.SqlTypes;
 @org.hibernate.annotations.Check(name = "ck_usuarios_role_valido", constraints = "user_role in ('ADMIN', 'USER')")
 @org.hibernate.annotations.Check(name = "ck_usuarios_account_status_valido", constraints = "account_status in ('ACTIVO', 'INACTIVO')")
 @org.hibernate.annotations.Check(name = "ck_usuarios_reset_token_pair", constraints = "(reset_token_hash is null and reset_token_expiry is null) or (reset_token_hash is not null and reset_token_expiry is not null)")
+@org.hibernate.annotations.Check(name = "ck_usuarios_username_formato", constraints = "username = lower(username) and char_length(username) between 3 and 30 and position(' ' in username) = 0 and trim(translate(username, 'abcdefghijklmnopqrstuvwxyz0123456789._-', repeat(' ', 39))) = '' and trim(translate(substring(username from 1 for 1), 'abcdefghijklmnopqrstuvwxyz0123456789', repeat(' ', 36))) = '' and trim(translate(substring(username from char_length(username) for 1), 'abcdefghijklmnopqrstuvwxyz0123456789', repeat(' ', 36))) = ''")
 public class UsuarioEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(nullable = false, length = Usuario.MAX_USERNAME)
+    private String username;
     @Column(name = "nombre_completo", nullable = false, columnDefinition = "text")
     private String nombreCompleto;
     @Column(nullable = false, length = Usuario.MAX_EMAIL)
@@ -53,10 +59,11 @@ public class UsuarioEntity {
 
     protected UsuarioEntity() {}
 
-    public UsuarioEntity(Long id, String nombreCompleto, String email, String passwordHash,
+    public UsuarioEntity(Long id, String username, String nombreCompleto, String email, String passwordHash,
             RolUsuario role, EstadoCuenta accountStatus, Instant fechaCreacion,
             String resetTokenHash, Instant resetTokenExpiry) {
         this.id = id;
+        this.username = username;
         this.nombreCompleto = nombreCompleto;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -68,6 +75,7 @@ public class UsuarioEntity {
     }
 
     public Long getId() { return id; }
+    public String getUsername() { return username; }
     public String getNombreCompleto() { return nombreCompleto; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }

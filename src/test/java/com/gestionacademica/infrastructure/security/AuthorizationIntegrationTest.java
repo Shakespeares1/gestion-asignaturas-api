@@ -46,23 +46,60 @@ class AuthorizationIntegrationTest {
 
     @Test
     void adminPuedeGestionarUsuarios() throws Exception {
+        String email = "admin-list-" + java.util.UUID.randomUUID() + "@example.org";
+        Usuario saved = usuarios.guardar(Usuario.registrar("admin-list-user", "Admin List User", email,
+                passwordHasher.hash("correct-password"), Instant.now()));
+
         mockMvc.perform(get("/api/usuarios").with(user("admin").roles("ADMIN")))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + saved.getId() + ")].username").value(org.hamcrest.Matchers.hasItem("admin-list-user")))
+                .andExpect(jsonPath("$[?(@.id == " + saved.getId() + ")].passwordHash").doesNotExist());
     }
 
     @Test
     void registroPublicoIgnoraIntentoDeElegirAdminYEstado() throws Exception {
+        String username = "public-" + java.util.UUID.randomUUID().toString().substring(0, 12);
         String email = "public-register-" + java.util.UUID.randomUUID() + "@example.org";
         mockMvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nombreCompleto\":\"Public User\",\"email\":\"" + email
+                        .content("{\"username\":\"" + username + "\",\"nombreCompleto\":\"Public User\",\"email\":\"" + email
                                 + "\",\"password\":\"sample-only-password\",\"role\":\"ADMIN\",\"accountStatus\":\"INACTIVO\"}"))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.username").value(username))
                 .andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.accountStatus").value("ACTIVO"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
         Usuario created = usuarios.buscarPorEmail(email).orElseThrow();
+        assertEquals(username, created.getUsername());
         assertEquals(RolUsuario.USER, created.getRole());
         assertEquals(EstadoCuenta.ACTIVO, created.getAccountStatus());
+    }
+
+    @Test
+    void registroRechazaUsernameAusenteYDuplicadosDeUsernameYEmail() throws Exception {
+        String unique = java.util.UUID.randomUUID().toString().substring(0, 12);
+        String email = "username-required-" + unique + "@example.org";
+        String missingUsername = "{\"nombreCompleto\":\"No Username\",\"email\":\"" + email
+                + "\",\"password\":\"sample-only-password\"}";
+        mockMvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content(missingUsername))
+                .andExpect(status().isBadRequest());
+
+        String username = "dup-" + unique;
+        String firstEmail = "first-" + unique + "@example.org";
+        String firstRequest = "{\"username\":\"" + username + "\",\"nombreCompleto\":\"First\","
+                + "\"email\":\"" + firstEmail + "\",\"password\":\"sample-only-password\"}";
+        mockMvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content(firstRequest))
+                .andExpect(status().isCreated());
+
+        String caseDuplicate = "{\"username\":\"" + username.toUpperCase(java.util.Locale.ROOT)
+                + "\",\"nombreCompleto\":\"Second\",\"email\":\"second-" + unique
+                + "@example.org\",\"password\":\"sample-only-password\"}";
+        mockMvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content(caseDuplicate))
+                .andExpect(status().isConflict());
+
+        String emailDuplicate = "{\"username\":\"other-" + unique + "\",\"nombreCompleto\":\"Third\","
+                + "\"email\":\"" + firstEmail + "\",\"password\":\"sample-only-password\"}";
+        mockMvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content(emailDuplicate))
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -75,7 +112,7 @@ class AuthorizationIntegrationTest {
 
     @Test
     void loginDevuelveJwtYDatosPublicosSinHashes() throws Exception {
-        usuarios.guardar(Usuario.registrar("API User", "api-user@example.org",
+        usuarios.guardar(Usuario.registrar("api-user", "API User", "api-user@example.org",
                 passwordHasher.hash("correct-password"), Instant.now()));
 
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -83,6 +120,7 @@ class AuthorizationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("test-token"))
                 .andExpect(jsonPath("$.user.email").value("api-user@example.org"))
+                .andExpect(jsonPath("$.user.username").value("api-user"))
                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
     }
 
@@ -123,7 +161,8 @@ class AuthorizationIntegrationTest {
     @Test
     void registroPublicoAplicaLimitePorCuentaYDevuelve429() throws Exception {
         String email = "register-limit-" + java.util.UUID.randomUUID() + "@example.org";
-        String body = "{\"nombreCompleto\":\"Rate limited\",\"email\":\"" + email
+        String username = "limit-" + java.util.UUID.randomUUID().toString().substring(0, 12);
+        String body = "{\"username\":\"" + username + "\",\"nombreCompleto\":\"Rate limited\",\"email\":\"" + email
                 + "\",\"password\":\"long-valid-password\"}";
         mockMvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());
@@ -173,7 +212,7 @@ class AuthorizationIntegrationTest {
     @Test
     void recuperacionInformaServicioCorreoNoDisponibleSinConfigurar() throws Exception {
         String registered = "mail-disabled-" + java.util.UUID.randomUUID() + "@example.org";
-        usuarios.guardar(Usuario.registrar("Mail test", registered,
+        usuarios.guardar(Usuario.registrar("mail-test", "Mail test", registered,
                 passwordHasher.hash("sample-only-password"), Instant.now()));
         var unknown = mockMvc.perform(post("/api/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"unknown@example.org\"}"))
@@ -224,17 +263,19 @@ class AuthorizationIntegrationTest {
 
     @Test
     void adminPuedeCompletarCrudHttpDeUsuarios() throws Exception {
-        Usuario saved = usuarios.guardar(Usuario.registrar("HTTP User", "http-user@example.org",
+        Usuario saved = usuarios.guardar(Usuario.registrar("http-user", "HTTP User", "http-user@example.org",
                 passwordHasher.hash("correct-password"), Instant.now()));
 
         mockMvc.perform(get("/api/usuarios/{id}", saved.getId()).with(user("admin").roles("ADMIN")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.email").value("http-user@example.org"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.email").value("http-user@example.org"))
+                .andExpect(jsonPath("$.username").value("http-user"));
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .put("/api/usuarios/{id}", saved.getId()).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nombreCompleto\":\"HTTP User actualizado\",\"email\":\"http-user-updated@example.org\"}"))
+                        .content("{\"nombreCompleto\":\"HTTP User actualizado\",\"email\":\"http-user-updated@example.org\",\"username\":\"http-user-updated\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombreCompleto").value("HTTP User actualizado"))
+                .andExpect(jsonPath("$.username").value("http-user-updated"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .delete("/api/usuarios/{id}", saved.getId()).with(user("admin").roles("ADMIN")))
@@ -245,7 +286,7 @@ class AuthorizationIntegrationTest {
 
     @Test
     void userNoPuedeCambiarRole() throws Exception {
-        Usuario saved = usuarios.guardar(Usuario.registrar("Protected", "protected@example.org",
+        Usuario saved = usuarios.guardar(Usuario.registrar("protected", "Protected", "protected@example.org",
                 passwordHasher.hash("correct-password"), Instant.now()));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -258,7 +299,7 @@ class AuthorizationIntegrationTest {
 
     @Test
     void adminPuedeCambiarRoleYEstado() throws Exception {
-        Usuario saved = usuarios.guardar(Usuario.registrar("Managed", "managed@example.org",
+        Usuario saved = usuarios.guardar(Usuario.registrar("managed", "Managed", "managed@example.org",
                 passwordHasher.hash("correct-password"), Instant.now()));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -275,7 +316,7 @@ class AuthorizationIntegrationTest {
 
     @Test
     void adminPuedeCambiarAccesoConPutParaClientesSinPatch() throws Exception {
-        Usuario saved = usuarios.guardar(Usuario.registrar("Managed by PUT", "managed-put@example.org",
+        Usuario saved = usuarios.guardar(Usuario.registrar("managed-put", "Managed by PUT", "managed-put@example.org",
                 passwordHasher.hash("correct-password"), Instant.now()));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -303,7 +344,7 @@ class AuthorizationIntegrationTest {
     @Test
     void reportesUsuariosExigenAdminYNoExponenCamposSecretos() throws Exception {
         Instant created = Instant.now();
-        usuarios.guardar(new Usuario(null, "Private report user", "report-private@example.org", "{bcrypt}private-hash",
+        usuarios.guardar(new Usuario(null, "report-private", "Private report user", "report-private@example.org", "{bcrypt}private-hash",
                 RolUsuario.ADMIN, EstadoCuenta.ACTIVO, created, "private-reset-hash", created.plusSeconds(60)));
 
         mockMvc.perform(get("/api/reportes/usuarios/rol-estado?role=ADMIN&accountStatus=ACTIVO")

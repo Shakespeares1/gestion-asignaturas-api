@@ -79,6 +79,7 @@ public class AdminBootstrapConfiguration {
 
         @Override
         public void run(ApplicationArguments args) {
+            String username = requiredEnvironment("BOOTSTRAP_ADMIN_USERNAME");
             String name = requiredEnvironment("BOOTSTRAP_ADMIN_NAME");
             String email = requiredEnvironment("BOOTSTRAP_ADMIN_EMAIL");
             Console console = System.console();
@@ -94,7 +95,7 @@ public class AdminBootstrapConfiguration {
             try {
                 String passwordValue = new String(password);
                 Usuario created = transactionTemplate.execute(status ->
-                        bootstrap.crearPrimerAdministrador(name, email, passwordValue));
+                        bootstrap.crearPrimerAdministrador(username, name, email, passwordValue));
                 if (created == null) throw new IllegalStateException("No se pudo crear el administrador inicial");
                 console.printf("Administrador inicial creado. El proceso finalizará ahora.%n");
             } finally {
