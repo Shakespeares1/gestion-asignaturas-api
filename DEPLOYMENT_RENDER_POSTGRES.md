@@ -17,13 +17,13 @@ El código convierte el `connectionString` `postgresql://` de Render a JDBC, des
 
 ## Crear el servicio y la base
 
-1. Inicia sesión en Render y confirma que el repositorio GitHub `Shakespeares1/gestion-asignaturas-api` contiene la rama/cambios que se van a desplegar.
-2. En Render, crea un **Blueprint** nuevo con ese repositorio y rama.
-3. Revisa que el plan de PostgreSQL y del servicio web coincidan con lo autorizado para la cuenta. Confirma los recursos y crea el Blueprint.
+1. Inicia sesión en Render y abre el Blueprint existente `gestion-asignaturas-api`. El servicio web ya existe; el inventario actual no muestra ninguna base PostgreSQL.
+2. Conecta el Blueprint a la rama `codex/actividad2-auth-y-kodular-remote` de `Shakespeares1/gestion-asignaturas-api` y sincronízalo con el `render.yaml` de esa rama. Esta configuración debe conservar el servicio web existente y añadir una base PostgreSQL gratuita.
+3. Revisa el plan gratuito de PostgreSQL y confirma el cambio del Blueprint. Render debe indicar que añadirá `gestion-asignaturas-db` y que el servicio actualizará sus variables para usar esa base.
 4. Espera el primer deploy. El health check `/actuator/health/readiness` debe quedar `UP`; el arranque ejecuta las migraciones V1 y V2 una sola vez en la base nueva.
 5. Verifica `https://<servicio>.onrender.com/v3/api-docs` y `https://<servicio>.onrender.com/actuator/health/readiness`.
 
-No cambies la rama a `main` ni actives auto deploy hasta que los cambios se hayan revisado y publicado allí.
+No cambies la rama a `main` ni actives auto deploy hasta que los cambios se hayan revisado y publicado allí. El Blueprint actual está conectado a `main`; cambiarlo a la rama de trabajo es un paso necesario para aplicar este cambio.
 
 ## Crear el primer administrador
 

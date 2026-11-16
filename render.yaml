@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     repo: https://github.com/Shakespeares1/gestion-asignaturas-api
-    branch: codex/actividad2-auth-y-kodular
+    branch: codex/actividad2-auth-y-kodular-remote
     autoDeployTrigger: "off"
     dockerfilePath: ./Dockerfile
     dockerContext: .
