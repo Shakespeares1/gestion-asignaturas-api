@@ -42,4 +42,3 @@ databases:
     user: gestion_academica_app
     plan: free
     region: oregon
-    diskSizeGB: 1
