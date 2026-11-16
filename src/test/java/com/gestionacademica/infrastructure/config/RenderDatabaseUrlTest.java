@@ -23,6 +23,12 @@ class RenderDatabaseUrlTest {
     }
 
     @Test
+    void usaPuertoPostgresPredeterminadoCuandoRenderNoLoIncluye() {
+        assertEquals("jdbc:postgresql://db.internal:5432/gestion?sslmode=require",
+                RenderDatabaseUrl.toJdbcUrl("postgresql://app:secret@db.internal/gestion"));
+    }
+
+    @Test
     void conservaUrlJdbcYaConfigurada() {
         String jdbcUrl = "jdbc:postgresql://db.internal:5432/gestion?sslmode=require";
         assertEquals(jdbcUrl, RenderDatabaseUrl.toJdbcUrl(jdbcUrl));

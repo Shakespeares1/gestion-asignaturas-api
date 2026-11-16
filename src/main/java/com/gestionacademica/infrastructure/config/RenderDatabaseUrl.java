@@ -21,9 +21,13 @@ public final class RenderDatabaseUrl {
             throw new IllegalArgumentException("DB_URL de Render no es una URL PostgreSQL válida");
         }
         if (!("postgresql".equalsIgnoreCase(uri.getScheme()) || "postgres".equalsIgnoreCase(uri.getScheme()))
-                || uri.getHost() == null || uri.getPort() < 1 || uri.getRawPath() == null
+                || uri.getHost() == null || uri.getRawPath() == null
                 || uri.getRawPath().length() < 2) {
-            throw new IllegalArgumentException("DB_URL de Render debe incluir host, puerto y base de datos");
+            throw new IllegalArgumentException("DB_URL de Render debe incluir host y base de datos");
+        }
+        int port = uri.getPort() < 0 ? 5432 : uri.getPort();
+        if (port < 1 || port > 65535) {
+            throw new IllegalArgumentException("DB_URL de Render contiene un puerto PostgreSQL inválido");
         }
 
         List<String> query = new ArrayList<>();
@@ -35,7 +39,7 @@ public final class RenderDatabaseUrl {
             }
         }
         query.add("sslmode=require");
-        return "jdbc:postgresql://" + uri.getHost() + ":" + uri.getPort() + uri.getRawPath()
+        return "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getRawPath()
                 + "?" + String.join("&", query);
     }
 }
