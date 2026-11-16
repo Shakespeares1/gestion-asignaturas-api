@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     repo: https://github.com/Shakespeares1/gestion-asignaturas-api
-    branch: main
+    branch: codex/actividad2-auth-y-kodular
     autoDeployTrigger: "off"
     dockerfilePath: ./Dockerfile
     dockerContext: .
@@ -14,11 +14,17 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
       - key: DB_URL
-        sync: false
+        fromDatabase:
+          name: gestion-asignaturas-db
+          property: connectionString
       - key: DB_USERNAME
-        sync: false
+        fromDatabase:
+          name: gestion-asignaturas-db
+          property: user
       - key: DB_PASSWORD
-        sync: false
+        fromDatabase:
+          name: gestion-asignaturas-db
+          property: password
       - key: JWT_SECRET_BASE64
         generateValue: true
       - key: JWT_ISSUER
@@ -29,3 +35,11 @@ services:
         value: ""
       - key: APP_PROXY_TRUSTED_CIDRS
         value: ""
+
+databases:
+  - name: gestion-asignaturas-db
+    databaseName: gestion_academica
+    user: gestion_academica_app
+    plan: free
+    region: oregon
+    diskSizeGB: 1

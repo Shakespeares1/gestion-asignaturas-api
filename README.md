@@ -2,11 +2,11 @@
 
 API REST para la gestión académica de asignaturas, desarrollada con Java 21, Spring Boot 4.1.2, arquitectura hexagonal y PostgreSQL.
 
-## Conexión a PostgreSQL / Supabase
+## Conexión a PostgreSQL
 
 La aplicación lee `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` del entorno. No almacenes credenciales en el repositorio. Usa `.env.example` como referencia; Spring Boot no carga ese archivo automáticamente.
 
-El perfil predeterminado valida el esquema existente. Flyway corre en `dev` y `test`; en `prod` está deshabilitado para que el arranque no ejecute migraciones remotas. `prod` exige Hibernate `validate` y PostgreSQL con `sslmode=require`; una diferencia de esquema detiene el arranque. Las migraciones futuras deben aplicarse en una operación controlada antes de desplegar la versión nueva. Nunca uses `dev` en Render ni frente a Supabase/esquemas compartidos.
+El perfil `prod` exige PostgreSQL con `sslmode=require`, ejecuta las migraciones versionadas de Flyway y luego Hibernate valida el esquema. Está preparado para la base vacía nueva declarada en `render.yaml`. No conectes este perfil a una base preexistente sin revisar su esquema y el historial de migraciones. Nunca uses `dev` en Render.
 
 En PowerShell, define las variables solo para la terminal actual antes de iniciar:
 
@@ -28,20 +28,20 @@ $env:RUN_POSTGRES_INTEGRATION = "false"
 .\mvnw.cmd clean test
 ```
 
-No conectes la aplicación a la base Supabase existente hasta inspeccionar y respaldar el esquema y sus datos. En `prod`, Flyway está deshabilitado y Hibernate valida el esquema al arrancar. Conserva `baseline-on-migrate=false`; aplica futuras migraciones mediante una operación independiente, revisada y aprobada antes de desplegar la versión que las requiere.
+En producción, Flyway conserva `baseline-on-migrate=false` y `clean-disabled=true`: una base vacía recibe V1 y V2, mientras una base cuyo historial no coincide detiene el arranque para revisión.
 
 ## Migraciones versionadas con Flyway
 
-Flyway aplica `classpath:db/migration` en desarrollo y pruebas; el perfil de pruebas usa H2 en modo PostgreSQL y valida después las entidades. En producción Flyway permanece deshabilitado para impedir cambios de esquema durante el arranque. Hibernate usa `ddl-auto=validate`; `flyway.clean` está deshabilitado.
+Flyway aplica `classpath:db/migration` en desarrollo, pruebas y en el primer arranque de producción. El perfil de pruebas usa H2 en modo PostgreSQL y valida después las entidades. Hibernate usa `ddl-auto=validate`; `flyway.clean` está deshabilitado.
 
 Migraciones iniciales:
 
 - `V1__create_asignaturas.sql`: `asignaturas`, ID identity `BIGINT`, campos de texto/`VARCHAR` e enteros según `AsignaturaEntity`, reglas de créditos y semestre positivos e índices por semestre/créditos.
 - `V2__create_usuarios.sql`: `usuarios`, ID identity `BIGINT`, email único, enums persistidos como `VARCHAR(16)` con checks, timestamps `TIMESTAMP(6) WITH TIME ZONE`, pareja de recuperación nullable atómica e índices por rol/estado y fecha.
 
-Flyway está habilitado globalmente, pero `application-prod.properties` lo deshabilita; Hibernate `validate` comprueba el esquema al iniciar Render. `baseline-on-migrate=false` y `clean-disabled=true` se conservan. Una base vacía de pruebas recibe V1 y V2 al iniciar. **No conectes la aplicación a Supabase existente hasta respaldar e inspeccionar su esquema y datos.** En producción, preparar y aplicar futuras migraciones requiere una operación controlada separada; no se ejecutan al iniciar la API.
+La base nueva de Render recibe V1 y V2 al iniciar la API. `baseline-on-migrate=false` y `clean-disabled=true` se conservan; Flyway no crea un baseline automático ni borra datos.
 
-Para adoptar un esquema existente, primero toma y verifica un respaldo, inspecciona el esquema y compara en una copia aislada todas las columnas, tipos, longitudes, nulabilidad, identity, índices, restricciones y datos con V1/V2. Verifica además emails normalizados y sin duplicados, roles/estados válidos, timestamps presentes y tokens de recuperación emparejados. La operación ya reportada para esta base estableció baseline Flyway en versión 1 y aplicó V2. No repitas baseline ni migrate. La línea base no crea tablas, valida ni corrige el esquema. Si existe cualquier diferencia, diseña, prueba y revisa una migración de transición en una copia aislada.
+Para adoptar un esquema existente, primero toma y verifica un respaldo, inspecciona el esquema y compara en una copia aislada todas las columnas, tipos, longitudes, nulabilidad, identity, índices, restricciones y datos con V1/V2. Verifica además emails normalizados y sin duplicados, roles/estados válidos, timestamps presentes y tokens de recuperación emparejados. La línea base no crea tablas, valida ni corrige el esquema. Si existe cualquier diferencia, diseña, prueba y revisa una migración de transición en una copia aislada. La base nueva del Blueprint no requiere baseline.
 
 ## API de asignaturas
 
@@ -152,23 +152,23 @@ La cuenta se normaliza antes de limitar. El límite de cuenta se combina con la 
 - Pulsa **Authorize** e introduce el JWT válido (Swagger agrega el esquema Bearer). El login y el registro son públicos; el resto de las operaciones protegidas responde según las reglas ADMIN/USER.
 - La definición OpenAPI/Swagger UI es pública y no contiene credenciales. Las operaciones de usuarios requieren ADMIN; las escrituras de asignaturas requieren ADMIN.
 
-## Preparación para Render (sin servicio creado)
+## Preparación para Render
 
-Render ejecuta una imagen Docker basada en Maven/Temurin Java 21. `Dockerfile` construye con `RUN_POSTGRES_INTEGRATION=false ./mvnw -B clean verify`; el stage de ejecución inicia con `java -jar /app/app.jar`. `render.yaml` fija `numInstances: 1` para que el limitador en memoria tenga estado coherente. Producción usa Hibernate `validate`, deshabilita Flyway y conserva `server.forward-headers-strategy=none`; `APP_PROXY_TRUSTED_CIDRS` queda vacío hasta confirmar redes upstream confiables. Swagger declara una URL de servidor relativa. El blueprint tiene auto deploy desactivado; la creación de un servicio Render inicia un primer despliegue y requiere autorización aparte.
+Render ejecuta una imagen Docker basada en Maven/Temurin Java 21. `Dockerfile` construye con `RUN_POSTGRES_INTEGRATION=false ./mvnw -B clean verify`; el stage de ejecución inicia con `java -jar /app/app.jar`. `render.yaml` declara un servicio web y PostgreSQL en la misma región, con auto deploy desactivado y una instancia para que el limitador en memoria conserve estado coherente. Producción migra con Flyway, valida con Hibernate y conserva `server.forward-headers-strategy=none`; `APP_PROXY_TRUSTED_CIDRS` queda vacío hasta confirmar redes upstream confiables. Swagger declara una URL de servidor relativa.
 
-El archivo `render.yaml` sirve como blueprint para importar el repositorio GitHub `Shakespeares1/gestion-asignaturas-api`, rama `main`, con auto deploy desactivado y perfil `prod`. Al crear el servicio, Render debe vincular el repositorio y aplicar ese blueprint. Render inyecta `PORT`; la aplicación usa ese valor, con fallback `10000`, y escucha en `0.0.0.0`. El health check usa `/actuator/health/readiness`, que verifica disponibilidad de la aplicación y PostgreSQL sin depender del estado SMTP. Los probes están habilitados en `prod`; las rutas de health son públicas y sus detalles permanecen ocultos.
+El archivo `render.yaml` sirve como Blueprint para importar la rama `codex/actividad2-auth-y-kodular` del repositorio GitHub `Shakespeares1/gestion-asignaturas-api` y perfil `prod`. Render inyecta `PORT`; la aplicación usa ese valor, con fallback `10000`, y escucha en `0.0.0.0`. El health check `/actuator/health/readiness` verifica la aplicación y PostgreSQL sin depender del SMTP. Los probes están habilitados en `prod`; las rutas de health son públicas y sus detalles permanecen ocultos. Los pasos de creación del servicio y PostgreSQL están en [DEPLOYMENT_RENDER_POSTGRES.md](DEPLOYMENT_RENDER_POSTGRES.md).
 
 Configura en Render:
 
-- Obligatorios: `SPRING_PROFILES_ACTIVE=prod`, `DB_URL` en formato JDBC (`jdbc:postgresql://<host>:5432/<base>?sslmode=require`), `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET_BASE64` (al menos 32 bytes aleatorios Base64). El blueprint genera `JWT_SECRET_BASE64` de 256 bits. No uses `DATABASE_URL`: la configuración de Spring consume `DB_URL`.
+- Obligatorios: `SPRING_PROFILES_ACTIVE=prod`, `DB_URL` conectado al `connectionString` privado de Render Postgres, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET_BASE64` (al menos 32 bytes aleatorios Base64). El adaptador convierte la URL Render a JDBC y exige TLS. El blueprint referencia el usuario y contraseña de la base, y genera `JWT_SECRET_BASE64` de 256 bits.
 - Opcionales: `JWT_ISSUER` (predeterminado `gestion-academica`), `JWT_TTL_SECONDS` (900; rango 60–86400), `CORS_ALLOWED_ORIGINS` (orígenes HTTPS explícitos separados por coma; vacío deshabilita CORS para navegadores) y `APP_PROXY_TRUSTED_CIDRS` (lista separada por comas; dejar vacía hasta verificar las redes de todos los proxies upstream que llegan a la aplicación). No incluyas rangos de clientes ni redes amplias para habilitar encabezados.
-- Para habilitar recuperación por correo: `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`, `MAIL_FROM` y `APP_MAIL_RESET_URL` con esquema HTTPS en producción. STARTTLS y su requisito deben estar habilitados (`SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true`) y validar la identidad del host (`SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_CHECKSERVERIDENTITY=true`). Auth/STARTTLS y timeouts SMTP están en `.env.example`. Si faltan estos ajustes, recuperación responde `503`; no se simula un envío. No configures SMTP hasta disponer de un proveedor real.
+- Para habilitar recuperación por correo: `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`, `MAIL_FROM` y `APP_MAIL_RESET_URL` con esquema HTTPS en producción. STARTTLS y su requisito deben estar habilitados (`SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true`) y validar la identidad del host (`SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_CHECKSERVERIDENTITY=true`). Auth/STARTTLS y timeouts SMTP están en `.env.example`. Render bloquea SMTP saliente en puertos 25, 465 y 587 en sus servicios gratuitos; sin proveedor compatible la recuperación responde `503` y no se simula un envío. No configures credenciales hasta disponer de un proveedor real.
 - No configures `PORT` manualmente salvo que Render lo solicite; la plataforma lo entrega. No configures el perfil `dev`.
 
-`render.yaml` usa variables `sync: false` para DB_URL/usuario/contraseña, genera la clave JWT y deja CORS/CIDR vacías. La conexión GitHub, la carga de secretos y creación del servicio requieren completar el flujo de Render; crear un Web Service inicia el primer despliegue, por lo que debe autorizarse una vez verificada la configuración. No se ha creado ni desplegado el servicio.
+`render.yaml` vincula credenciales de PostgreSQL, genera la clave JWT y deja CORS/CIDR vacías. La conexión a GitHub y la creación del servicio/base se hacen en el flujo de Render. No se han creado recursos en la cuenta del usuario.
 
 Las pruebas normales usan el perfil `test` aislado de Supabase mediante H2 en memoria, no requieren una clave JWT y no envían correo. La prueba PostgreSQL requiere `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `RUN_POSTGRES_INTEGRATION=true` y `SPRING_PROFILES_ACTIVE=postgres-integration`. Ejecútala solo contra una base de pruebas aislada: crea, actualiza y elimina un registro temporal.
 
 ## Verificación más reciente
 
-La última ejecución local de `mvnw.cmd -o clean test` con `RUN_POSTGRES_INTEGRATION=false` terminó con `BUILD SUCCESS`: 105 pruebas totales, 104 aprobadas, 0 fallos, 0 errores y 1 integración PostgreSQL omitida intencionalmente. No valida PostgreSQL real, el advisory lock en una base PostgreSQL, un servidor SMTP real, la construcción de la imagen Docker ni la conexión actual con Supabase.
+Las cifras de pruebas históricas de este repositorio no prueban esta copia tras los cambios de configuración de Render. Ejecuta la compilación y pruebas antes del primer despliegue. Las pruebas locales tampoco validan PostgreSQL real, el advisory lock de bootstrap, un proveedor de correo ni el servicio de Render.
