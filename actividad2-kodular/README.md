@@ -4,6 +4,7 @@ Este directorio contiene el proyecto fuente de Kodular para la Actividad 2. La a
 
 - API: `https://gestion-asignaturas-api.onrender.com`
 - Proyecto fuente: `GestorPedidos_Actividad2_SpringBoot_v14.aia`
+- APK: [`entrega/GestorPedidos_Actividad2_SpringBoot_v14.apk`](../entrega/GestorPedidos_Actividad2_SpringBoot_v14.apk)
 
 ## Funcionalidades
 
@@ -19,14 +20,10 @@ El usuario confirmó en ejecución: acceso ADMIN; creación, edición, consulta 
 
 Validación estática del `.aia`: ZIP íntegro, 23 entradas, ocho pantallas, XML/SCM analizables, IDs únicos por pantalla y sin tokens JWT, URLs JDBC con credenciales ni claves privadas.
 
-## Pendiente conocido
-
-La recuperación de contraseña por correo no se considera validada. Requiere configurar SMTP como variables de entorno del backend y probar el envío y el cambio de contraseña de extremo a extremo. No se incluyen secretos en este repositorio.
-
 ## APK
 
-La APK no se incluye todavía. Para generarla, importa el `.aia` en Kodular Creator, verifica que `Reportes` abra sin advertencias y usa **Export → Android App (.apk)**. Copia el APK resultante aquí solo después de probarla en un dispositivo.
+La APK de entrega está en la carpeta raíz `entrega/`. Se verificó su estructura ZIP y sus firmas Android v1, v2 y v3. Instálala en un dispositivo de prueba para comprobar su ejecución final.
 
 ## Seguridad
 
-No guardes contraseñas, tokens, claves JWT, credenciales de PostgreSQL ni secretos SMTP en el `.aia`, este directorio, el código fuente o capturas de la demostración.
+No guardes contraseñas, tokens, claves JWT, credenciales de PostgreSQL ni claves privadas en el `.aia`, este directorio, el código fuente o capturas de la demostración.

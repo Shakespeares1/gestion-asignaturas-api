@@ -9,6 +9,6 @@
 - Reportes: `Solicitar` presente; no hay setter de `busy` suelto en la raíz ni setter `spnTipoReporte.Enabled`; se encontraron cuatro setters para bloquear/desbloquear el botón de consulta.
 - Secretos: no se encontraron tokens JWT, URL JDBC con credenciales ni claves privadas dentro del `.aia`.
 - Companion: pruebas de ejecución confirmadas por el usuario, enumeradas en `README.md`.
-- No verificado: generación y ejecución de APK final; recuperación de contraseña por email con SMTP configurado.
+- APK: estructura ZIP íntegra; firmas Android v1, v2 y v3 verificadas estáticamente. Falta la instalación y prueba de ejecución en un teléfono.
 
 El archivo fuente se conserva como una copia; no se alteró el original del usuario.

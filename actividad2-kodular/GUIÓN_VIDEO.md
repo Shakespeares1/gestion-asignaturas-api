@@ -35,7 +35,3 @@ Usa la asignatura de prueba para mostrar filtros con resultados. Para usuarios p
 **Cierre**
 
 > Con esto presenté el acceso, el registro, la administración de asignaturas y usuarios, los reportes y los sensores. Gracias.
-
-## Nota honesta sobre recuperación de contraseña
-
-Si la evaluación exige demostrar esta función, informa que el envío por correo aún requiere configurar SMTP y validar el flujo completo. No la presentes como probada hasta recibir el correo y cambiar la contraseña correctamente.

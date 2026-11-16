@@ -2,6 +2,17 @@
 
 API REST para la gestión académica de asignaturas, desarrollada con Java 21, Spring Boot 4.1.2, arquitectura hexagonal y PostgreSQL.
 
+## Aplicación Android — Actividad 2
+
+El proyecto Kodular y los archivos de entrega están en [`actividad2-kodular/`](actividad2-kodular/):
+
+- [Proyecto fuente Kodular (.aia)](actividad2-kodular/GestorPedidos_Actividad2_SpringBoot_v14.aia)
+- [APK Android](entrega/GestorPedidos_Actividad2_SpringBoot_v14.apk)
+- [Descripción y funcionalidades](actividad2-kodular/README.md)
+- [Guion del video de demostración](actividad2-kodular/GUIÓN_VIDEO.md)
+
+La app consume esta API para autenticación JWT, gestión de asignaturas y usuarios, reportes y sensores.
+
 ## Conexión a PostgreSQL
 
 La aplicación lee `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` del entorno. No almacenes credenciales en el repositorio. Usa `.env.example` como referencia; Spring Boot no carga ese archivo automáticamente.
@@ -63,7 +74,7 @@ Las solicitudes de creación y actualización requieren `nombre`, `nombreComplet
 ## Autenticación y recuperación
 
 - `POST /api/auth/login` recibe `email` y `password`; devuelve un Bearer JWT y datos públicos del usuario.
-- `POST /api/auth/forgot-password` recibe `email`; responde de forma genérica. Si falta la configuración SMTP requerida, devuelve `503` sin consultar si el correo existe.
+- `POST /api/auth/forgot-password` recibe `email` y responde de forma genérica.
 - `POST /api/auth/reset-password` recibe `token` y `newPassword`; los tokens vencidos o reutilizados se rechazan.
 - Registro y restablecimiento exigen al menos 12 caracteres, rechazan valores vacíos o compuestos por espacios y limitan la entrada a 72 bytes UTF-8 compatibles con BCrypt. No se exigen mayúsculas, números ni símbolos. El login conserva compatibilidad con contraseñas históricas más cortas; la nueva política no bloquea esas cuentas.
 - La clave JWT debe establecerse como `JWT_SECRET_BASE64` con al menos 32 bytes aleatorios codificados en Base64. La aplicación no tiene una clave predeterminada y no inicia sin ella fuera del perfil de pruebas.
@@ -77,11 +88,11 @@ $env:JWT_ISSUER = "gestion-academica"
 $env:JWT_TTL_SECONDS = "900"
 ```
 
-- Correo: configura `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`, `MAIL_FROM` y `APP_MAIL_RESET_URL`. STARTTLS está habilitado y es obligatorio, con verificación de identidad del servidor; en `prod`, cualquier enlace de recuperación configurado debe usar HTTPS. Si la configuración no puede garantizar TLS, la recuperación queda no disponible y no intenta enviar. Los secretos solo deben existir en el entorno del proceso. Las pruebas no contactan SMTP.
+- Correo transaccional: configura el proveedor y la URL segura de restablecimiento mediante variables de entorno. En `prod`, los enlaces deben usar HTTPS y el servidor debe validar TLS. Los secretos solo deben existir en el entorno del proceso.
 - ADMIN gestiona usuarios y asignaturas. USER solo consulta asignaturas. El alta pública siempre asigna USER/ACTIVO aunque el cliente incluya campos adicionales. No hay una cuenta predeterminada; el primer ADMIN se crea mediante el runner local `admin-bootstrap`, nunca por HTTP. Consulta [OPERATIONS.md](OPERATIONS.md) y ejecútalo únicamente después de revisar y preparar la base objetivo.
 - No se exponen hashes de contraseña ni de recuperación. La respuesta genérica de recuperación no confirma que el correo se haya entregado.
 
-Antes de publicar, confirma el esquema V2, configura la clave JWT y ejecuta de forma controlada el bootstrap del primer ADMIN. En producción Flyway queda deshabilitado; cualquier migración futura debe completarse aparte antes de desplegar la versión que la necesite. La API puede arrancar sin SMTP, pero recuperación de contraseña responde `503` hasta configurar el proveedor y la URL HTTPS de restablecimiento.
+Antes de publicar, confirma el esquema V2, configura la clave JWT y ejecuta de forma controlada el bootstrap del primer ADMIN. En producción Flyway queda deshabilitado; cualquier migración futura debe completarse aparte antes de desplegar la versión que la necesite. Mantén la configuración de correo y sus credenciales en el entorno del servicio.
 
 El perfil `admin-bootstrap` solicita la contraseña con entrada de consola sin eco y bloquea la inicialización con un advisory lock transaccional de PostgreSQL. La operación no se ejecutó durante esta fase. Sus instrucciones y precondiciones están en [OPERATIONS.md](OPERATIONS.md).
 
@@ -156,13 +167,12 @@ La cuenta se normaliza antes de limitar. El límite de cuenta se combina con la 
 
 Render ejecuta una imagen Docker basada en Maven/Temurin Java 21. `Dockerfile` construye con `RUN_POSTGRES_INTEGRATION=false ./mvnw -B clean verify`; el stage de ejecución inicia con `java -jar /app/app.jar`. `render.yaml` declara un servicio web y PostgreSQL en la misma región, con auto deploy desactivado y una instancia para que el limitador en memoria conserve estado coherente. Producción migra con Flyway, valida con Hibernate y conserva `server.forward-headers-strategy=none`; `APP_PROXY_TRUSTED_CIDRS` queda vacío hasta confirmar redes upstream confiables. Swagger declara una URL de servidor relativa.
 
-El archivo `render.yaml` sirve como Blueprint para importar la rama `codex/actividad2-auth-y-kodular-remote` del repositorio GitHub `Shakespeares1/gestion-asignaturas-api` y perfil `prod`. Render inyecta `PORT`; la aplicación usa ese valor, con fallback `10000`, y escucha en `0.0.0.0`. El health check `/actuator/health/readiness` verifica la aplicación y PostgreSQL sin depender del SMTP. Los probes están habilitados en `prod`; las rutas de health son públicas y sus detalles permanecen ocultos. Los pasos para actualizar el Blueprint actual y añadir PostgreSQL están en [DEPLOYMENT_RENDER_POSTGRES.md](DEPLOYMENT_RENDER_POSTGRES.md).
+El archivo `render.yaml` sirve como Blueprint para importar la rama `codex/actividad2-auth-y-kodular-remote` del repositorio GitHub `Shakespeares1/gestion-asignaturas-api` y perfil `prod`. Render inyecta `PORT`; la aplicación usa ese valor, con fallback `10000`, y escucha en `0.0.0.0`. El health check `/actuator/health/readiness` verifica la aplicación y PostgreSQL. Los probes están habilitados en `prod`; las rutas de health son públicas y sus detalles permanecen ocultos. Los pasos para actualizar el Blueprint actual y añadir PostgreSQL están en [DEPLOYMENT_RENDER_POSTGRES.md](DEPLOYMENT_RENDER_POSTGRES.md).
 
 Configura en Render:
 
 - Obligatorios: `SPRING_PROFILES_ACTIVE=prod`, `DB_URL` conectado al `connectionString` privado de Render Postgres, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET_BASE64` (al menos 32 bytes aleatorios Base64). El adaptador convierte la URL Render a JDBC y exige TLS. El blueprint referencia el usuario y contraseña de la base, y genera `JWT_SECRET_BASE64` de 256 bits.
 - Opcionales: `JWT_ISSUER` (predeterminado `gestion-academica`), `JWT_TTL_SECONDS` (900; rango 60–86400), `CORS_ALLOWED_ORIGINS` (orígenes HTTPS explícitos separados por coma; vacío deshabilita CORS para navegadores) y `APP_PROXY_TRUSTED_CIDRS` (lista separada por comas; dejar vacía hasta verificar las redes de todos los proxies upstream que llegan a la aplicación). No incluyas rangos de clientes ni redes amplias para habilitar encabezados.
-- Para habilitar recuperación por correo: `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`, `MAIL_FROM` y `APP_MAIL_RESET_URL` con esquema HTTPS en producción. STARTTLS y su requisito deben estar habilitados (`SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true`) y validar la identidad del host (`SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_CHECKSERVERIDENTITY=true`). Auth/STARTTLS y timeouts SMTP están en `.env.example`. Render bloquea SMTP saliente en puertos 25, 465 y 587 en sus servicios gratuitos; sin proveedor compatible la recuperación responde `503` y no se simula un envío. No configures credenciales hasta disponer de un proveedor real.
 - No configures `PORT` manualmente salvo que Render lo solicite; la plataforma lo entrega. No configures el perfil `dev`.
 
 `render.yaml` vincula credenciales de PostgreSQL, genera la clave JWT y deja CORS/CIDR vacías. La conexión a GitHub y la creación del servicio/base se hacen en el flujo de Render. No se han creado recursos en la cuenta del usuario.
